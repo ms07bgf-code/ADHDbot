@@ -16,6 +16,23 @@ function getTodayReservedItems() {
   });
 }
 
+/**
+ * 予定日が今日以降の予約を日付順で返す（オンデマンド確認用 / §5.1b）。
+ * 相対日付の記法 (§5.3a) が7日先までしか表現できないため、日数の上限は設けず全件返す。
+ */
+function getUpcomingReservedItems() {
+  var today = formatDate_(new Date());
+  return getAllRows(SHEET_NAMES.CARRY_ITEMS)
+    .filter(function (row) {
+      return row['状態'] === CARRY_STATE.RESERVED && formatDateValue_(row['予定日']) >= today;
+    })
+    .sort(function (a, b) {
+      var x = formatDateValue_(a['予定日']);
+      var y = formatDateValue_(b['予定日']);
+      return x < y ? -1 : (x > y ? 1 : 0);
+    });
+}
+
 /** 現在「未回収」の行を全件取得する（翌朝再提示用 / §4.1）。 */
 function getLostItems() {
   return getAllRows(SHEET_NAMES.CARRY_ITEMS).filter(function (row) {

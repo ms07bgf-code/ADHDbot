@@ -27,3 +27,10 @@ function getTodayLogsByEvent(event) {
 function formatDate_(date) {
   return Utilities.formatDate(date, CONFIG.TIMEZONE, 'yyyy-MM-dd');
 }
+
+/** 'M/d(曜)' 形式。予約の一覧など、日付を短く見せる箇所で使う。 */
+function formatShortDate_(value) {
+  var d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  return Utilities.formatDate(d, CONFIG.TIMEZONE, 'M/d') + '(' + WEEKDAY_LABELS[d.getDay()] + ')';
+}

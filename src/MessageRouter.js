@@ -89,15 +89,24 @@ function routeTextMessage_(event) {
   lineReply(event.replyToken, '登録: ' + parsed.item + '（' + parsed.dateStr + '）');
 }
 
-/** オンデマンド確認 (§5.1b)。常備品全件 + 当日の routine_items + 持出中を返す。 */
+/**
+ * オンデマンド確認 (§5.1b)。常備品全件 + 当日の routine_items + 持出中 + 先の予約を返す。
+ *
+ * 予約を含めるのは、登録してから予定日の朝までの間、登録できたか確認する手段が
+ * 他にないため（「登録したっけ？」を解消するのがこの機能の役目 / §5.1b）。
+ */
 function buildOnDemandCheckText_() {
   var standing = getAllStandingItems();
   var routine = getTodayRoutineItems();
   var carrying = getCarryingItems().map(function (r) { return r.item; });
+  var reserved = getUpcomingReservedItems();
 
   var lines = [];
   lines.push('【常備品】' + (standing.length > 0 ? standing.join('、') : 'なし'));
   lines.push('【本日のルーチン】' + (routine.length > 0 ? routine.join('、') : 'なし'));
   lines.push('【持出中】' + (carrying.length > 0 ? carrying.join('、') : 'なし'));
+  lines.push('【予約】' + (reserved.length > 0
+    ? reserved.map(function (r) { return formatShortDate_(r['予定日']) + ' ' + r.item; }).join('、')
+    : 'なし'));
   return lines.join('\n');
 }
