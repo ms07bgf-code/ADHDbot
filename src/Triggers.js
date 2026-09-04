@@ -20,24 +20,48 @@ function morningTriggerChecker() {
   runMorningPush();
 }
 
-/** 予防push (§5.2)。平日 15:00 固定。持出中0件、または朝pushに応答なしの日は沈黙。 */
+/**
+ * 予防push (§5.2)。平日 15:00 固定。
+ *
+ * これは §5.4「職場離脱」の時刻トリガーによる代役であり、仕様書§5.9では
+ * 「Phase 2で離脱検知に置換」とされている。ただし §1 のとおり位置検知は静かに失敗する
+ * （端末再起動・権限失効・機内モード・ロガーの停止）ため、削除せずフォールバックとして残す。
+ *
+ *   層Bが当日離脱を検知している → 代役は不要なのでスキップ
+ *   検知が来ていない            → 固定時刻で鳴らす
+ *
+ * これは §1 が定める「離脱検知が来た日は固定時刻をスキップする」排他の適用にあたる。
+ */
 function preventionPushTrigger() {
-  var today = new Date();
-  var isWeekday = today.getDay() >= 1 && today.getDay() <= 5;
-  if (!isWeekday) return;
+  var skipReason = preventionSkipReason_(new Date());
+  if (skipReason) {
+    writeLog('suppressed', { pushType: 'prevention', reason: skipReason });
+    return;
+  }
 
   var carrying = getCarryingItems();
   if (carrying.length === 0) {
     writeLog('no_items', { pushType: 'prevention' });
     return;
   }
-  if (!hasMorningResponseToday()) {
-    writeLog('suppressed', { pushType: 'prevention', reason: 'no_morning_response' });
-    return;
-  }
 
   var text = carrying.map(function (r) { return r.item; }).join('、');
   sendPush(text, CONFIG.PUSH_PRIORITY.PREVENTION, null, 'prevention');
+}
+
+/** 予防pushを見送る理由。鳴らしてよければ null。 */
+function preventionSkipReason_(now) {
+  var isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
+  if (!isWeekday) return 'weekend';
+
+  // 層Bが当日動いていれば、実際の離脱で鳴るので固定時刻の代役は不要
+  var dwellExitDate = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.FIRED_DWELL_EXIT);
+  if (dwellExitDate === formatDate_(now)) return 'dwell_detection_active';
+
+  // 持ち出したか不明な状態で聞くと外れが続き、push全体の信頼が失われる (§5.2 条件3)
+  if (!hasMorningResponseToday()) return 'no_morning_response';
+
+  return null;
 }
 
 /**

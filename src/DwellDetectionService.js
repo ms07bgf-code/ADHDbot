@@ -173,6 +173,10 @@ function handleDwellExit_(state, distanceM, now) {
   }
   props.setProperty(PROP_KEYS.LAST_DWELL_DEBOUNCE, String(nowMs));
 
+  // 層Bが当日動いている証跡。予防push(15:00)を見送る判断に使う (§5.2)。
+  // pushの有無ではなく「離脱を検知できたか」で見る。検知が動いていれば代役は不要なため。
+  props.setProperty(PROP_KEYS.FIRED_DWELL_EXIT, formatDate_(now));
+
   recordDwell(state.anchor, new Date(state.arrivedAt * 1000), now);
 
   var pushed = pushDwellDepartureReminder_(state.anchor, distanceM);

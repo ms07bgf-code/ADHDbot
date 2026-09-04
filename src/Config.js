@@ -47,7 +47,8 @@ var PROP_KEYS = {
   // 動的アンカー（層B / §7）の作業バッファ。離脱時に破棄する。
   DWELL_STATE: 'dwell_state', // {state, anchor:{lat,lng}, arrivedAt}
   DWELL_POINTS: 'dwell_points', // [[lat, lng, 秒単位ts], ...] 直近90分ぶん
-  LAST_DWELL_DEBOUNCE: 'last_dwell_debounce_ts'
+  LAST_DWELL_DEBOUNCE: 'last_dwell_debounce_ts',
+  FIRED_DWELL_EXIT: 'fired_date_dwell_exit' // 層Bが当日機能しているかの判定に使う (§5.2)
 };
 
 // ===== 確定値 (§5.0) =====
