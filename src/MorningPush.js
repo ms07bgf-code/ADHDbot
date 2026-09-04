@@ -73,8 +73,31 @@ function runMorningPush() {
     ? [{ label: '持った', data: 'carried_all:' + today }]
     : null;
 
+  if (quickReply) {
+    var hint = consumeMorningHint_();
+    if (hint) text += '\n' + hint;
+  }
+
   sendPush(text, CONFIG.PUSH_PRIORITY.MORNING, quickReply, 'morning');
   PropertiesService.getScriptProperties().setProperty(PROP_KEYS.FIRED_MORNING, today);
+}
+
+/**
+ * 「持った」の意味を案内する文。最初の数回だけ返し、以降は null。
+ *
+ * 「持った」は単なる記録ではなく「今日はこれを持って出る＝外出先でも見張ってほしい」の宣言であり、
+ * 押さなければ持出中が空のまま＝予防pushも滞在地点からの離脱リマインドも鳴らない。
+ * この対応関係は押してみないと分からないため、最初だけ明示する。
+ *
+ * 恒久的には出さない。毎朝同じ説明が付くと文面が伸び、単語だけを読ませる設計 (§5.1) が崩れるため。
+ */
+function consumeMorningHint_() {
+  var props = PropertiesService.getScriptProperties();
+  var shown = parseInt(props.getProperty(PROP_KEYS.MORNING_HINT_COUNT) || '0', 10);
+  if (shown >= CONFIG.MORNING_HINT_SHOW_COUNT) return null;
+
+  props.setProperty(PROP_KEYS.MORNING_HINT_COUNT, String(shown + 1));
+  return '（持ったら[持った]。押した物は外出先でも見ておきます）';
 }
 
 /** postback「持った」で当日の候補を一括で持出中にする。 */

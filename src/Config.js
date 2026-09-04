@@ -41,6 +41,7 @@ var PROP_KEYS = {
   FIRED_WEEK_INVENTORY: 'fired_week_inventory',
   FIRED_DEPARTURE: 'fired_date_departure', // 自宅離脱の最終push (層A / §5.4)
   MORNING_RESPONDED: 'morning_responded_date', // 朝pushへの応答があった日
+  MORNING_HINT_COUNT: 'morning_hint_count', // 「持った」の使い方を案内した回数
   LAST_DEPARTURE_DEBOUNCE: 'last_departure_debounce_ts',
   // 動的アンカー（層B / §7）の作業バッファ。離脱時に破棄する。
   DWELL_STATE: 'dwell_state', // {state, anchor:{lat,lng}, arrivedAt}
@@ -62,6 +63,9 @@ var CONFIG = {
     6: '09:00' // 休日
   },
   MORNING_PUSH_LEAD_MINUTES: 20, // 出発の20分前 (既定時刻使用時)
+  // 「持った」ボタンの意味を案内する回数。使い方が分かれば不要になるため、
+  // 恒久的には出さない（§1 原則2「判断コストを乗せない」/ 原則4「文面は単語のみ」）。
+  MORNING_HINT_SHOW_COUNT: 5,
   PREDICTED_PUSH_LEAD_MINUTES: 20, // §7.5.3 予測時刻からの追加マージン
 
   // 予防push (§5.2)
