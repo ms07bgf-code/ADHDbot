@@ -61,13 +61,15 @@ GASはファイル分割してもグローバルスコープを共有するた�
 
 ### 1. clasp でプロジェクトを作成しコードをpush
 
+**前提1: スプレッドシートにバインドしたスクリプトであること。** 上記スプレッドシートを開き、メニュー「拡張機能 > Apps Script」からスクリプトを作る。スタンドアロンのスクリプトでは `SpreadsheetApp.getActiveSpreadsheet()` が使えず、`setupSpreadsheet()` を含む全てのシート操作が失敗する。
+
+**前提2: Apps Script API を有効にすること。** https://script.google.com/home/usersettings で「Google Apps Script API」をオンにする。これを忘れると `clasp push` が `User has not enabled the Apps Script API` で失敗する。
+
 ```bash
 npm install -g @google/clasp
 clasp login
 
-# 既存の上記スプレッドシートにバインドしたスクリプトを新規作成する場合は
-# スプレッドシート側のメニュー「拡張機能 > Apps Script」で一度スクリプトを開き、
-# そのスクリプトID(URLの /d/<ID>/edit から取得)を .clasp.json に設定する。
+# 開いたApps ScriptのURL（/d/<ID>/edit）から スクリプトID を控える
 cp .clasp.json.example .clasp.json
 # .clasp.json の scriptId を書き換える
 
@@ -86,6 +88,10 @@ GASエディタの「プロジェクトの設定 > スクリプト プロパテ�
 | `RICH_MENU_IMAGE_FILE_ID` | 背景画像のDriveファイルID | リッチメニュー（任意 / 手順8） |
 | `HOME_LAT` | 自宅の緯度 | Open-Meteo天気判定 |
 | `HOME_LNG` | 自宅の経度 | Open-Meteo天気判定 |
+
+**`LINE_USER_ID` の取得**: LINE Developers のチャネル基本設定に「あなたのユーザーID」として表示されている。見つからなければ、`LINE_USER_ID` を空のままWebhookまで設定し、**ボットに何か一言送る**と `log` シートに `setup_user_id` の行が出るので、そこの `userId` を使う（この記録は `LINE_USER_ID` が未設定のときだけ残る）。
+
+**`WEBHOOK_SECRET`** は自分で決める任意の文字列。iOSショートカットとOwnTracksの設定で同じ値を使うので控えておく。
 
 ### 3. 初回セットアップ関数を実行
 
@@ -107,6 +113,17 @@ GASエディタで以下を順に手動実行する（実行権限の承認ダ�
 | LINE Messaging API のWebhook | `{"events": [...]}` | `handleLineWebhook` |
 | OwnTracks（層B） | `{"_type":"location","lat":35.68,"lon":139.76,"tst":...,"acc":12}` + `?secret=...` | `handleLocationPost` |
 | 自宅離脱通知（層A） | `{"secret": "..."}` | `handleHomeDeparture` |
+
+#### ⚠ コードを更新したら再デプロイが必要
+
+**`clasp push` しただけでは、WebアプリURLは古いコードを配信し続ける。** デプロイはバージョンの固定であり、pushとは別の操作になる。閾値や文面を調整しながら運用する間、ここが最も引っかかりやすい。
+
+更新は**既存のデプロイを編集する**こと。新しいデプロイを作るとURLが変わり、LINE・OwnTracks・iOSショートカットの3箇所を設定し直すことになる。
+
+- 画面から: 「デプロイ > デプロイを管理」→ 対象の鉛筆アイコン → バージョン「新バージョン」→ デプロイ（URLは変わらない）
+- CLIから: `clasp deployments` でデプロイIDを調べ、`clasp deploy -i <デプロイID>`
+
+なお時刻トリガーやGASエディタからの手動実行は常に最新のコードで動く。**古いままになるのはWebアプリ経由の3つ（LINE Webhook / 自宅離脱 / 位置情報）だけ**なので、「LINEの返信だけ挙動が古い」という症状が出たらこれを疑う。
 
 ### 5. LINE Developers側の設定
 

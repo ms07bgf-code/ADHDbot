@@ -5,6 +5,8 @@
  */
 
 function handleLineWebhook(body) {
+  captureUserIdForSetup_(body);
+
   (body.events || []).forEach(function (event) {
     try {
       routeLineEvent_(event);
@@ -12,6 +14,21 @@ function handleLineWebhook(body) {
       writeLog('error', { where: 'handleLineWebhook', message: String(err) });
     }
   });
+}
+
+/**
+ * セットアップ用。LINE_USER_ID が未設定のときだけ、送信者のIDを log に残す。
+ * push先のIDはLINE Developersの画面からも取れるが、ボットに一言送るほうが早い。
+ * 設定後は何もしないので、通常運用でIDがログに残り続けることはない。
+ */
+function captureUserIdForSetup_(body) {
+  if (PropertiesService.getScriptProperties().getProperty(PROP_KEYS.LINE_USER_ID)) return;
+
+  var events = body.events || [];
+  var userId = events.length > 0 && events[0].source ? events[0].source.userId : null;
+  if (userId) {
+    writeLog('setup_user_id', { userId: userId, hint: 'この値を LINE_USER_ID に設定してください' });
+  }
 }
 
 function routeLineEvent_(event) {
