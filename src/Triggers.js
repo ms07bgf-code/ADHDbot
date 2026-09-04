@@ -80,8 +80,9 @@ function midnightSweepTrigger() {
   sweepCarryingToRecovered();
 }
 
-/** 日次クリーンアップ。予定日超過の予約/古い未回収を落とし、departure_log の保持期間を適用する。 */
+/** 日次クリーンアップ。予定日超過の予約/古い未回収を落とし、departure_log と dwell_log の保持期間を適用する。 */
 function dailyCleanupTrigger() {
   cleanupOverdueCarryItems();
   cleanupOldDepartureLogs();
+  cleanupOldDwellLogs();
 }

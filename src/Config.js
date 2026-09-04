@@ -11,6 +11,7 @@ var SHEET_NAMES = {
   STANDING_ITEMS: 'standing_items',
   EVENT_ITEMS: 'event_items',
   DEPARTURE_LOG: 'departure_log',
+  DWELL_LOG: 'dwell_log',
   LOG: 'log'
 };
 
@@ -40,7 +41,11 @@ var PROP_KEYS = {
   FIRED_WEEK_INVENTORY: 'fired_week_inventory',
   FIRED_DEPARTURE: 'fired_date_departure', // 自宅離脱の最終push (層A / §5.4)
   MORNING_RESPONDED: 'morning_responded_date', // 朝pushへの応答があった日
-  LAST_DEPARTURE_DEBOUNCE: 'last_departure_debounce_ts'
+  LAST_DEPARTURE_DEBOUNCE: 'last_departure_debounce_ts',
+  // 動的アンカー（層B / §7）の作業バッファ。離脱時に破棄する。
+  DWELL_STATE: 'dwell_state', // {state, anchor:{lat,lng}, arrivedAt}
+  DWELL_POINTS: 'dwell_points', // [[lat, lng, 秒単位ts], ...] 直近90分ぶん
+  LAST_DWELL_DEBOUNCE: 'last_dwell_debounce_ts'
 };
 
 // ===== 確定値 (§5.0) =====
@@ -73,12 +78,32 @@ var CONFIG = {
 
   // 自宅離脱検知 (層A / §5.4)
   DEPARTURE_DEBOUNCE_MINUTES: 5,
-  DEPARTURE_NEAR_DISTANCE_TEXT_THRESHOLD_M: 300, // 参考(現状は距離未送信・文面は固定)
+  // 文面切り替えの距離しきい値 (§5.4 / §10 未決だった箇所)。
+  // 離脱判定半径(300m)と同値にすると「単語のみ」の分岐が到達不能になるため、
+  // 必ず離脱判定半径より大きくすること。
+  // 300〜500m = 境界を跨いだ直後で取りに戻れる → 単語のみ
+  // 500m〜   = 報告が遅れて既に遠い → 「置いてきた？」（行動を要求しない）
+  DEPARTURE_NEAR_DISTANCE_TEXT_THRESHOLD_M: 500,
+
+  // 動的アンカー = 任意地点の滞在→離脱検知 (層B / §7)
+  DWELL: {
+    STAY_RADIUS_M: 150, // 滞在判定半径
+    EXIT_RADIUS_M: 300, // 離脱判定半径。滞在半径より大きくする（ヒステリシス）
+    MIN_STAY_MINUTES: 30, // 滞在時間閾値。信号待ち・コンビニ寄りを除外する
+    DEBOUNCE_MINUTES: 5,
+    // 報告欠落を滞在と誤認しないためのガード (§7 実装上の注意)
+    MIN_POINTS: 3, // 「点が2つで30分空いている」ケースを弾く
+    MAX_POINT_GAP_MINUTES: 15, // これを超える間隔があれば滞在の連続性を認めない
+    BUFFER_MINUTES: 90, // 作業バッファの保持長
+    BUFFER_MAX_POINTS: 150, // ScriptPropertiesの値サイズ上限に対する保険
+    // 自宅は層A（固定ジオフェンス）が担当するため、この距離内のアンカーは層Bの対象外
+    HOME_SUPPRESS_RADIUS_M: 300
+  },
 
   // push上限と優先度 (§5.5)
   DAILY_PUSH_CAP: 3,
   PUSH_PRIORITY: {
-    DEPARTURE: 1, // 移動検知push（自宅離脱の最終push）
+    DEPARTURE: 1, // 移動検知push（自宅離脱の最終push / 任意地点の離脱push）
     MORNING: 2,
     PREVENTION: 3,
     PREV_NIGHT: 4,
@@ -101,8 +126,9 @@ var CONFIG = {
   // 昇格ロジック (§4.3b 暫定値)
   PROMOTION_TRIGGER_COUNT: 3,
 
-  // departure_log 保持期間 (§7 プライバシー方針)
+  // 保持期間 (§7 プライバシー方針)。日次トリガーで期限切れ行を物理削除する。
   DEPARTURE_LOG_RETENTION_DAYS: 90,
+  DWELL_LOG_RETENTION_DAYS: 90,
 
   TIMEZONE: 'Asia/Tokyo'
 };

@@ -11,6 +11,7 @@ var SHEET_SCHEMAS = {
   standing_items: ['item', '有効'],
   event_items: ['keyword', 'items', '有効'],
   departure_log: ['date', '曜日', '離脱時刻', '予測時刻'],
+  dwell_log: ['日付', '到着', '出発', 'lat', 'lng', 'ラベル'],
   log: ['timestamp', 'event', 'detail']
 };
 

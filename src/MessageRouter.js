@@ -72,9 +72,15 @@ function routeTextMessage_(event) {
     return;
   }
 
-  if (text.indexOf('履歴') === 0 || text.indexOf('どこ') === 0) {
-    // dwell_log / 動的アンカーは Phase 2（本MVPには含まれない / §7）
-    lineReply(event.replyToken, 'この機能はPhase 2（未実装）です');
+  // 履歴問い合わせ (§5.7)。すべてユーザー起点のため push上限の対象外。
+  if (text === '履歴') {
+    lineReply(event.replyToken, buildDwellHistoryText(3));
+    return;
+  }
+
+  var whereMatch = text.match(/^どこ[\s　]+(.+)$/);
+  if (whereMatch) {
+    lineReply(event.replyToken, buildWhereIsItemText(whereMatch[1].trim()));
     return;
   }
 
