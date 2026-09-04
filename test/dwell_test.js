@@ -117,6 +117,27 @@ console.log('C: 報告欠落を滞在と誤認しない');
   check('DWELLING に入らない', last.state !== 'DWELLING', last);
 }
 
+// --- C2: 5分間隔運用での報告欠落の許容範囲 ---
+// MAX_POINT_GAP_MINUTES=15 に対し、5分間隔なら「2回続けて欠落(=15分の間隔)」までは許容し、
+// 3回続けて欠落(=20分の間隔)すると滞在の連続性を認めない。
+console.log('C2: 報告欠落の許容範囲（5分間隔運用）');
+{
+  // 2回欠落 = 15分の間隔 → 滞在は成立する
+  const ctx = buildContext();
+  const t0 = new Date('2026-09-04T10:00:00+09:00');
+  let last;
+  [0, 5, 10, 25, 30, 35].forEach((m) => { last = post(ctx, BASE_LAT, BASE_LNG, m, t0); });
+  check('15分の間隔（2回欠落）なら滞在が成立する', last.state === 'DWELLING', last);
+}
+{
+  // 3回欠落 = 20分の間隔 → 連続性を認めない
+  const ctx = buildContext();
+  const t0 = new Date('2026-09-04T10:00:00+09:00');
+  let last;
+  [0, 5, 10, 30, 35, 40].forEach((m) => { last = post(ctx, BASE_LAT, BASE_LNG, m, t0); });
+  check('20分の間隔（3回欠落）なら滞在が成立しない', last.state !== 'DWELLING', last);
+}
+
 // --- D: 移動中は滞在にならない ---
 console.log('D: 移動中');
 {
