@@ -60,7 +60,7 @@ function routeTextMessage_(event) {
   var text = (event.message.text || '').trim();
 
   if (text === 'チェック' || text === '出る') {
-    lineReply(event.replyToken, buildOnDemandCheckText_());
+    replyOnDemandCheck_(event.replyToken);
     return;
   }
 
@@ -75,11 +75,6 @@ function routeTextMessage_(event) {
   if (foundMatch) {
     var foundOk = markItemAsFound(foundMatch[1].trim());
     lineReply(event.replyToken, foundOk ? '記録しました' : '該当する未回収の品が見つかりませんでした');
-    return;
-  }
-
-  if (text === '削除' || text === '取り消し') {
-    replyDeletableList_(event.replyToken);
     return;
   }
 
@@ -104,33 +99,32 @@ function routeTextMessage_(event) {
 }
 
 /**
- * 「削除」で取り消せる登録をボタンで並べる。
- * 後から誤登録に気づいた場合の経路（登録直後の取り消しボタンは流れてしまうため）。
+ * オンデマンド確認の返信。一覧と、そこから消すための取消ボタンを同時に返す (§5.1b)。
+ * 誤登録は「一覧を見て気づく」ため、確認と取り消しを別のコマンドに分けない。
  */
-function replyDeletableList_(replyToken) {
+function replyOnDemandCheck_(replyToken) {
   var rows = getDeletableItems();
-  if (rows.length === 0) {
-    lineReply(replyToken, '取り消せる登録はありません');
-    return;
-  }
-
   var shown = rows.slice(0, LINE_QUICK_REPLY_MAX);
   var buttons = shown.map(function (row) {
     return { label: buildDeleteLabel_(row), data: 'delete_item:' + row.id };
   });
 
-  var text = '取り消すものを選んでください';
+  var text = buildOnDemandCheckText_();
   if (rows.length > shown.length) {
-    text += '（他に' + (rows.length - shown.length) + '件）';
+    text += '\n（取消ボタンは' + shown.length + '件まで）';
   }
-  lineReply(replyToken, text, buttons);
+  lineReply(replyToken, text, buttons.length > 0 ? buttons : null);
 }
 
-/** ボタンのラベル。予約は日付を添える。LINEの上限20文字に収める。 */
+/**
+ * 取消ボタンのラベル。確認の返信に並ぶため、押すと消えることが分かる文言にする。
+ * 予約は日付を添える。LINEの上限20文字に収める。
+ */
 function buildDeleteLabel_(row) {
-  var label = row['状態'] === CARRY_STATE.RESERVED
+  var body = row['状態'] === CARRY_STATE.RESERVED
     ? formatShortDate_(row['予定日']) + ' ' + row.item
     : row.item;
+  var label = '取消 ' + body;
   return label.length > LINE_QUICK_REPLY_LABEL_MAX
     ? label.substring(0, LINE_QUICK_REPLY_LABEL_MAX - 1) + '…'
     : label;

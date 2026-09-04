@@ -51,8 +51,9 @@ rows = [
 const deletable = ctx.getDeletableItems().map((r) => r.id);
 check('予約(今日以降)と持出中だけが対象', JSON.stringify(deletable) === JSON.stringify(['a', 'b']), deletable);
 
-check('予約のラベルには日付と曜日が付く', /^\d+\/\d+\(.\) 診察券$/.test(ctx.buildDeleteLabel_(rows[0])), ctx.buildDeleteLabel_(rows[0]));
-check('持出中のラベルは品名のみ', ctx.buildDeleteLabel_(rows[1]) === '傘', ctx.buildDeleteLabel_(rows[1]));
+check('ラベルは押すと消えると分かる文言', /^取消 /.test(ctx.buildDeleteLabel_(rows[0])), ctx.buildDeleteLabel_(rows[0]));
+check('予約のラベルには日付と曜日が付く', /^取消 \d+\/\d+\(.\) 診察券$/.test(ctx.buildDeleteLabel_(rows[0])), ctx.buildDeleteLabel_(rows[0]));
+check('持出中のラベルは品名のみ', ctx.buildDeleteLabel_(rows[1]) === '取消 傘', ctx.buildDeleteLabel_(rows[1]));
 
 const longRow = { id: 'x', item: 'あ'.repeat(40), '予定日': iso(0), '状態': '持出中' };
 const longLabel = ctx.buildDeleteLabel_(longRow);
