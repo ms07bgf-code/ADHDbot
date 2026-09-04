@@ -44,6 +44,7 @@ src/
   WebApp.js                doPost/doGet エントリポイント
   Triggers.js              各時刻トリガーのエントリ関数
   SetupTriggers.js         インストール可能トリガーの初期設定
+  SetupCheck.js            セットアップ状況の診断 checkSetup()
 test/
   dwell_test.js            層Bの状態機械の検証（node で実行）
   morning_hint_test.js     「持った」案内文の打ち切り検証
@@ -92,6 +93,8 @@ GASエディタで以下を順に手動実行する（実行権限の承認ダ�
 
 1. `setupSpreadsheet` — シート・ヘッダーの作成、`event_items` 初期セット投入
 2. `installTriggers` — 朝push・予防push・前夜push・週次棚卸し・みなし回収・日次クリーンアップの各トリガーを作成
+
+**セットアップの確認**: どの段階でも `checkSetup()` を実行すると、プロパティ・シート・トリガー・WebアプリURLの状況が実行ログにまとまって出る。値（トークン等）は出力しないので、ログをそのまま貼って相談できる。
 
 ### 4. Webアプリとしてデプロイ
 
@@ -159,6 +162,39 @@ GASエディタで以下を順に手動実行する（実行権限の承認ダ�
 **注意**: `setupRichMenu()` は既存のリッチメニューを**全て削除してから**作り直す。再実行で古いメニューが溜まらないようにするため。LINE Official Account Manager の画面から手で作ったメニューがある場合も消える。
 
 画像を用意せずに済ませたい場合は、LINE Official Account Manager の画面からリッチメニューを作り、各ボタンのアクションを「テキストを送信」にして `チェック` / `履歴` を設定してもよい（この場合コード側の作業は不要）。
+
+### 9. 動作確認
+
+デプロイ後、この順で確認する。上から順に、依存の少ないものから潰していく。
+
+| # | 確認 | やり方 | 期待 |
+|---|---|---|---|
+| 1 | 設定の抜け | GASエディタで `checkSetup()` | すべて OK。未設定/なし があれば埋める |
+| 2 | LINEへの送信 | `sendTestPush()` | LINEに「テスト送信です」が届く |
+| 3 | LINEからの受信 | LINEで「チェック」と送る | 一覧が返る（常備品なし等でも可） |
+| 4 | 手動登録 | LINEで「傘」と送る | 「登録: 傘（日付）」+ [取り消し] が返る |
+| 5 | 朝pushの中身 | GASエディタで `runMorningPush()` を直接実行 | 時刻を待たずに朝pushの内容が届く |
+| 6 | 自宅離脱（層A） | WebアプリURLへ `{"secret":"..."}` をPOST | `log` に `departure` 系の行が増える |
+| 7 | 位置情報（層B） | WebアプリURL + `?secret=...` へ OwnTracks形式のJSONをPOST | `log` に記録が残る |
+| 8 | 滞在→離脱 | OwnTracksを実際に持ち歩く | 30分以上の滞在後に離れると `dwell_log` に1行 |
+
+**5 の `runMorningPush()` は時刻トリガーを待たずに中身を確認できる**ので、閾値や文面の調整に使える（`fired_date_morning` を消せば何度でも試せる）。
+
+**6・7 の手動POST** は `curl` でも、iOSショートカットでも、Apps Scriptの `UrlFetchApp` でもよい。
+
+```bash
+# 6: 自宅離脱
+curl -L -X POST "<WebアプリURL>" \
+  -H 'Content-Type: application/json' \
+  -d '{"secret":"<WEBHOOK_SECRETの値>"}'
+
+# 7: 位置情報（OwnTracks形式）
+curl -L -X POST "<WebアプリURL>?secret=<WEBHOOK_SECRETの値>" \
+  -H 'Content-Type: application/json' \
+  -d '{"_type":"location","lat":35.6812,"lon":139.7671,"tst":1757000000,"acc":12}'
+```
+
+`-L` はリダイレクトを追うため必須（GASのWebアプリURLはリダイレクトを挟む）。
 
 ## LINEで使えるコマンド
 
