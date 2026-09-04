@@ -35,6 +35,12 @@ function routePostback_(event) {
     return;
   }
 
+  if (data.indexOf('delete_item:') === 0) {
+    var deletedItem = deleteCarryItemById(data.substring('delete_item:'.length));
+    lineReply(event.replyToken, deletedItem ? '取り消しました: ' + deletedItem : '既に取り消されています');
+    return;
+  }
+
   if (data.indexOf('promote:') === 0) {
     var promoteParts = data.substring('promote:'.length).split(':');
     promoteToRoutine(decodeURIComponent(promoteParts[0]), promoteParts[1]);
@@ -72,6 +78,11 @@ function routeTextMessage_(event) {
     return;
   }
 
+  if (text === '削除' || text === '取り消し') {
+    replyDeletableList_(event.replyToken);
+    return;
+  }
+
   // 履歴問い合わせ (§5.7)。すべてユーザー起点のため push上限の対象外。
   if (text === '履歴') {
     lineReply(event.replyToken, buildDwellHistoryText(3));
@@ -85,8 +96,44 @@ function routeTextMessage_(event) {
   }
 
   // それ以外は手動登録 (§5.3, §5.3a)。確認は返さず、登録した事実だけ短く返す。
+  // 打ち間違いはこの直後に気づくことが多いため、取り消しボタンをその場に添える。
   var parsed = registerManualItem(text);
-  lineReply(event.replyToken, '登録: ' + parsed.item + '（' + parsed.dateStr + '）');
+  lineReply(event.replyToken, '登録: ' + parsed.item + '（' + parsed.dateStr + '）', [
+    { label: '取り消し', data: 'delete_item:' + parsed.id }
+  ]);
+}
+
+/**
+ * 「削除」で取り消せる登録をボタンで並べる。
+ * 後から誤登録に気づいた場合の経路（登録直後の取り消しボタンは流れてしまうため）。
+ */
+function replyDeletableList_(replyToken) {
+  var rows = getDeletableItems();
+  if (rows.length === 0) {
+    lineReply(replyToken, '取り消せる登録はありません');
+    return;
+  }
+
+  var shown = rows.slice(0, LINE_QUICK_REPLY_MAX);
+  var buttons = shown.map(function (row) {
+    return { label: buildDeleteLabel_(row), data: 'delete_item:' + row.id };
+  });
+
+  var text = '取り消すものを選んでください';
+  if (rows.length > shown.length) {
+    text += '（他に' + (rows.length - shown.length) + '件）';
+  }
+  lineReply(replyToken, text, buttons);
+}
+
+/** ボタンのラベル。予約は日付を添える。LINEの上限20文字に収める。 */
+function buildDeleteLabel_(row) {
+  var label = row['状態'] === CARRY_STATE.RESERVED
+    ? formatShortDate_(row['予定日']) + ' ' + row.item
+    : row.item;
+  return label.length > LINE_QUICK_REPLY_LABEL_MAX
+    ? label.substring(0, LINE_QUICK_REPLY_LABEL_MAX - 1) + '…'
+    : label;
 }
 
 /**

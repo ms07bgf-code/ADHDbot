@@ -52,12 +52,13 @@ function registerManualItem(itemName) {
   var parsed = parseRelativeDate(itemName);
   var sheet = getOrCreateSheet_(SHEET_NAMES.CARRY_ITEMS);
   var today = formatDate_(new Date());
+  var id = generateId_();
 
   if (parsed.dateStr === today) {
     // 当日分はそのまま候補として扱う。実体化は他の当日候補と同様「持った」で行う設計だが、
     // 手動登録は明示的な行動なので即時に持出中として記録する。
     appendRow(sheet, {
-      id: generateId_(),
+      id: id,
       item: parsed.item,
       '予定日': today,
       '持出日': today,
@@ -67,7 +68,7 @@ function registerManualItem(itemName) {
     });
   } else {
     appendRow(sheet, {
-      id: generateId_(),
+      id: id,
       item: parsed.item,
       '予定日': parsed.dateStr,
       '持出日': '',
@@ -79,7 +80,35 @@ function registerManualItem(itemName) {
 
   writeLog('manual_register', { item: parsed.item, 予定日: parsed.dateStr });
   checkPromotionCandidate(parsed.item, parsed.dateStr);
-  return parsed;
+  return { item: parsed.item, dateStr: parsed.dateStr, id: id };
+}
+
+/**
+ * 誤登録の取り消し。行ごと削除する。
+ *
+ * 状態を変えるのではなく物理削除するのは、誤登録は「無かったこと」にすべきであり、
+ * 履歴として残すと昇格ロジック (§4.3b) の登録回数に混ざってしまうため。
+ *
+ * @returns {?string} 削除した品名。該当が無ければ null
+ */
+function deleteCarryItemById(id) {
+  var row = getAllRows(SHEET_NAMES.CARRY_ITEMS).filter(function (r) { return r.id === id; })[0];
+  if (!row) return null;
+  deleteRow(SHEET_NAMES.CARRY_ITEMS, row);
+  writeLog('item_deleted', { item: row.item, 状態: row['状態'], 予定日: formatDateValue_(row['予定日']) });
+  return row.item;
+}
+
+/**
+ * 取り消せる登録の一覧（予約=今日以降 と 持出中）。
+ * 回収済は履歴なので対象外。未回収は「見つかった」で戻すため対象外。
+ */
+function getDeletableItems() {
+  var today = formatDate_(new Date());
+  return getAllRows(SHEET_NAMES.CARRY_ITEMS).filter(function (row) {
+    if (row['状態'] === CARRY_STATE.CARRYING) return true;
+    return row['状態'] === CARRY_STATE.RESERVED && formatDateValue_(row['予定日']) >= today;
+  });
 }
 
 /** 朝push経由でない、天気・ルーチン・予定由来の候補を「持った」時点で新規登録する。 */

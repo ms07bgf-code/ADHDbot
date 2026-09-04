@@ -3,6 +3,10 @@
  * LINE Messaging API との入出力のみを担当する (§3 責務分担: LINEはロジックを持たせない)。
  */
 
+// LINE Messaging API のクイックリプライの制限
+var LINE_QUICK_REPLY_MAX = 13; // 1メッセージに付けられるボタン数
+var LINE_QUICK_REPLY_LABEL_MAX = 20; // ラベルの文字数
+
 var LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 var LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 
