@@ -17,22 +17,40 @@
  */
 
 /**
- * 位置情報POSTの受け口。ロガーアプリから {secret, lat, lng} を受ける。
- * @returns {Object} 応答JSON
+ * 位置情報POSTの受け口。OwnTracks の HTTP モードを主対象とする。
+ *
+ * OwnTracks のペイロード例 (_type: location):
+ *   {"_type":"location","lat":35.6812,"lon":139.7671,"tst":1757000000,"acc":12,...}
+ *
+ * OwnTracks は本文に任意のフィールドを足せないため、シークレットはURLのクエリ文字列で受ける
+ * （GASの doPost はリクエストヘッダーを読めないため、ヘッダー認証は使えない）。
+ *
+ * @param {Object} body パースされたリクエスト本文
+ * @param {Object} params クエリ文字列 (GASの e.parameter)
  */
-function handleLocationPost(body) {
+function handleLocationPost(body, params) {
   var props = PropertiesService.getScriptProperties();
   var expectedSecret = props.getProperty(PROP_KEYS.WEBHOOK_SECRET);
+  var givenSecret = body.secret || (params && params.secret);
 
-  if (!expectedSecret || body.secret !== expectedSecret) {
+  if (!expectedSecret || givenSecret !== expectedSecret) {
     writeLog('location_rejected', { reason: 'invalid_secret' });
     return { ok: false, error: 'invalid_secret' };
   }
 
   var lat = parseFloat(body.lat);
-  var lng = parseFloat(body.lng);
+  // OwnTracks は lon、その他のロガーは lng を使うことがあるため両方を受ける
+  var lng = parseFloat(body.hasOwnProperty('lon') ? body.lon : body.lng);
   if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return { ok: false, error: 'invalid_coordinates' };
+  }
+
+  // 測位精度が悪い点は滞在半径(150m)の判定を壊すため捨てる。
+  // OwnTracks は acc(メートル)を必ず送ってくる。
+  var accuracy = parseFloat(body.acc);
+  if (!isNaN(accuracy) && accuracy > CONFIG.DWELL.MAX_ACCURACY_M) {
+    writeLog('location_ignored', { reason: 'poor_accuracy', acc: accuracy });
+    return { ok: true, ignored: 'poor_accuracy' };
   }
 
   // 境界上で往復すると数秒差で二重に叩かれるため LockService は必須 (§7)
@@ -43,10 +61,27 @@ function handleLocationPost(body) {
   }
 
   try {
-    return processLocationPoint_(lat, lng, new Date());
+    return processLocationPoint_(lat, lng, resolveFixTime_(body.tst));
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 測位時刻を決める。
+ * OwnTracks は圏外の間キューに溜めて後からまとめて送るため、サーバー到着時刻を使うと
+ * 滞在時間が潰れて判定できない。端末が付けた tst(Unix秒) を優先する。
+ * 極端に古い/未来の値は壊れたデータとみなしてサーバー時刻に落とす。
+ */
+function resolveFixTime_(tst) {
+  var now = new Date();
+  var seconds = parseInt(tst, 10);
+  if (isNaN(seconds)) return now;
+
+  var fixTime = new Date(seconds * 1000);
+  var diffMinutes = Math.abs(now.getTime() - fixTime.getTime()) / 60000;
+  if (diffMinutes > CONFIG.DWELL.BUFFER_MINUTES) return now;
+  return fixTime;
 }
 
 function processLocationPoint_(lat, lng, now) {
@@ -213,7 +248,10 @@ function saveDwellPoints_(points) {
 /** 直近 BUFFER_MINUTES 分だけ残す。点数上限も設けて値サイズを抑える。 */
 function pruneDwellPoints_(points, nowSec) {
   var cutoff = nowSec - CONFIG.DWELL.BUFFER_MINUTES * 60;
-  var pruned = points.filter(function (p) { return p[2] >= cutoff; });
+  // OwnTracks はキューに溜めた点をまとめて送ることがあり、到着順と測位順が一致しない。
+  // 滞在判定は点の間隔を見るため、時刻順に整列してから扱う。
+  var pruned = points.filter(function (p) { return p[2] >= cutoff; })
+    .sort(function (a, b) { return a[2] - b[2]; });
   if (pruned.length > CONFIG.DWELL.BUFFER_MAX_POINTS) {
     pruned = pruned.slice(pruned.length - CONFIG.DWELL.BUFFER_MAX_POINTS);
   }

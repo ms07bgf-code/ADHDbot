@@ -187,5 +187,39 @@ console.log('G: 自宅アンカーの抑止');
   check('suppressed が記録される', suppressed.length === 1, suppressed);
 }
 
+// --- H: OwnTracks のペイロード形式 ---
+console.log('H: OwnTracks ペイロード');
+{
+  const ctx = buildContext();
+  ctx.__state.store['WEBHOOK_SECRET'] = 's3cret';
+  ctx.__state.setCarrying([{ item: '傘' }]);
+
+  // OwnTracks は圏外の間キューに溜めて後からまとめて送るため、
+  // 端末が付けた tst(Unix秒) を基準に判定できる必要がある。
+  const nowSec = Math.floor(Date.now() / 1000);
+  const ownTracksPoint = (offsetMin, extra) => Object.assign({
+    _type: 'location',
+    lat: BASE_LAT,
+    lon: BASE_LNG, // lng ではなく lon
+    tst: nowSec - (35 - offsetMin) * 60,
+    acc: 12
+  }, extra || {});
+
+  // シークレットはクエリ文字列で渡す（OwnTracksは本文に任意フィールドを足せない）
+  let last;
+  for (let m = 0; m <= 35; m += 5) {
+    last = ctx.handleLocationPost(ownTracksPoint(m), { secret: 's3cret' });
+  }
+  check('lon / tst / クエリのシークレットで滞在が成立する', last.state === 'DWELLING', last);
+
+  // 誤ったシークレットは弾く
+  const rejected = ctx.handleLocationPost(ownTracksPoint(35), { secret: 'wrong' });
+  check('誤ったシークレットを拒否する', rejected.ok === false && rejected.error === 'invalid_secret', rejected);
+
+  // 測位精度が悪い点は捨てる（滞在半径150mの判定を壊すため）
+  const poor = ctx.handleLocationPost(ownTracksPoint(35, { acc: 500 }), { secret: 's3cret' });
+  check('精度の悪い点を無視する', poor.ignored === 'poor_accuracy', poor);
+}
+
 console.log(failures === 0 ? '\nすべて通過' : '\n失敗: ' + failures);
 process.exit(failures === 0 ? 0 : 1);
