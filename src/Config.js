@@ -35,6 +35,7 @@ var PROP_KEYS = {
   LINE_TOKEN: 'LINE_TOKEN',
   LINE_USER_ID: 'LINE_USER_ID',
   WEBHOOK_SECRET: 'WEBHOOK_SECRET',
+  RICH_MENU_IMAGE_FILE_ID: 'RICH_MENU_IMAGE_FILE_ID', // リッチメニューの背景画像(Driveのファイル ID)
   FIRED_MORNING: 'fired_date_morning',
   FIRED_EVENING: 'fired_date_evening', // 予防push (§5.2)
   FIRED_PREV_NIGHT: 'fired_date_prev_night',
@@ -105,6 +106,16 @@ var CONFIG = {
     BUFFER_MAX_POINTS: 150, // ScriptPropertiesの値サイズ上限に対する保険
     // 自宅は層A（固定ジオフェンス）が担当するため、この距離内のアンカーは層Bの対象外
     HOME_SUPPRESS_RADIUS_M: 300
+  },
+
+  // リッチメニュー（LINEの画面下部に常設するボタン）
+  // 押すとテキストを送信するだけなので、routeTextMessage_ の分岐がそのまま使われる。
+  // ボタンを増減したいときは BUTTONS を編集して setupRichMenu() を再実行する。
+  RICH_MENU: {
+    WIDTH: 2500,
+    HEIGHT: 843, // コンパクト版。LINEが受け付けるのは 2500x1686 と 2500x843 のみ
+    CHAT_BAR_TEXT: 'メニュー',
+    BUTTONS: ['チェック', '履歴']
   },
 
   // push上限と優先度 (§5.5)
